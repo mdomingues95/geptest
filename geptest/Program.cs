@@ -1,25 +1,70 @@
+using geptest.Context;
+using geptest.Services;
+using Microsoft.OpenApi.Models;
+using System.Text.Json.Serialization;
+
 var builder = WebApplication.CreateBuilder(args);
+
+
 
 // Add services to the container.
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+{
+    var services = builder.Services;
+    var env = builder.Environment;
+
+
+    services.AddDbContext<SqlLiteContext>();
+    services.AddCors();
+    services.AddControllers().AddJsonOptions(x =>
+    {
+        // serialize enums as strings in api responses (e.g. Role)
+        x.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
+        // ignore omitted parameters on models to enable optional params (e.g. User update)
+        x.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
+
+     services.AddScoped<IProductService, ProductService>();
+
+    services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+    services.AddEndpointsApiExplorer();
+    services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new OpenApiInfo { Title = "G&P Stock API", 
+            Description = "Teste pratico Miller Domingues", Version = "v1" });
+    });
+
+
+    //  services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+    // configure DI for application services
+   
+}
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// configure HTTP request pipeline
 {
+
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "G&P Stock API");
+        c.RoutePrefix = "";
+    });
+
+    // global cors policy
+    app.UseCors(x => x
+        .AllowAnyOrigin()
+        .AllowAnyMethod()
+        .AllowAnyHeader());
+
+    // global error handler
+  //  app.UseMiddleware<ErrorHandlerMiddleware>();
+
+    app.MapControllers();
 }
 
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+app.Run("http://localhost:4000");
